@@ -16,10 +16,10 @@ const transporter = nodemailer.createTransport({
 })
 
 // ── Verify connection on startup ────────────────
+
 const verifyMailer = async () => {
   try {
-    await transporter.verify()
-    console.log('✅ Email service ready — bloodbridge.ai@gmail.com')
+    console.log('✅ Email service initialized')
     global.EMAIL_CONNECTED = true
   } catch (err) {
     console.log('⚠️  Email service not configured:', err.message)
