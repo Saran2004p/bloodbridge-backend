@@ -350,6 +350,25 @@ app.get('/api/requests', async (req, res) => {
 
 // ── Start Server ────────────────────────────────
 const PORT = process.env.PORT || 5000
+
+app.get('/test-email', async (req, res) => {
+  try {
+    const { transporter } = require('./email/mailer')
+
+    await transporter.sendMail({
+      from: `"BloodBridge AI 🩸" <${process.env.EMAIL_USER}>`,
+      to: 'sarandec2004@gmail.com',
+      subject: 'BloodBridge AI Test Email',
+      html: '<h1>✅ Email system working!</h1>',
+    })
+
+    res.send('Test email sent successfully!')
+  } catch (err) {
+    console.error(err)
+    res.status(500).send(err.message)
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`\n🩸 BloodBridge AI Backend v3.0`)
   console.log(`✅ Running on port ${PORT}`)
