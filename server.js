@@ -11,10 +11,13 @@ const { notifyAllDonors, notifyCoordinator, notifyDonorConfirmed, sendWelcomeEma
 const admin      = require('firebase-admin')
 
 // ── Initialize ──────────────────────────────────
-initFirebase()
-verifyMailer()
 
-const app = express()
+const startServer = async () => {
+  initFirebase()
+  await verifyMailer()
+
+  const app = express()
+
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(morgan('dev'))
 app.use(express.json())
@@ -353,3 +356,6 @@ app.listen(PORT, () => {
   console.log(`📡 DB:    ${global.DB_CONNECTED ? 'Firebase Firestore ✅' : 'Offline/Demo ⚡'}`)
   console.log(`📧 Email: ${global.EMAIL_CONNECTED ? 'Gmail ✅' : 'Not configured ⚠️'}`)
 })
+}
+
+startServer()
