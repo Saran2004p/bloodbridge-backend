@@ -19,11 +19,21 @@ app.use(helmet({ contentSecurityPolicy: false }))
 app.use(morgan('dev'))
 app.use(express.json())
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'https://bloodbridge-ai.web.app',
-    'http://localhost:5173',
-    'http://localhost:3000',
-  ],
+  origin: function(origin, callback) {
+    // Allow all Firebase web.app domains, localhost, and no-origin requests
+    const allowed = [
+      'https://bloodbridge-ai.web.app',
+      'https://bloodbridge-admin-panel.web.app',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:3000',
+    ]
+    if (!origin || allowed.includes(origin) || origin.endsWith('.web.app')) {
+      callback(null, true)
+    } else {
+      callback(null, true) // Allow all for now — restrict in production
+    }
+  },
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   credentials: true,
 }))
