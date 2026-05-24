@@ -191,9 +191,29 @@ app.post('/api/requests', async (req, res) => {
       city:city.trim(), bloodType, unitsRequired:Number(unitsRequired)||1,
       contactPerson:contactPerson?.trim()||'', contactPhone:contactPhone.trim(),
       urgency:urgency||'planned',
-      matchedDonors:matchedDonors.slice(0,5).map(d=>({
+
+      /*matchedDonors:matchedDonors.slice(0,5).map(d=>({
         donorId:d.id, name:d.name, bloodType:d.bloodType,
         city:d.city, phone:d.phone, email:d.email, aiScore:d.aiScore, status:'notified'
+      }))*/
+      
+      matchedDonors: matchedDonors.slice(0,5).map(d => ({
+        donorId: d.id,
+        name: d.name,
+        bloodType: d.bloodType,
+        city: d.city,
+
+        phoneMasked: d.phone
+          ? d.phone.slice(0,2) + 'XXXXXX' + d.phone.slice(-2)
+          : '',
+
+        phone: '',
+        email: d.email || '',
+
+        aiScore: d.aiScore,
+        status: 'notified',
+
+        contactShared: false
       })),
       status:matchedDonors.length>0?'pulse_sent':'pending',
       availableDonorCount:matchedDonors.length,
@@ -220,10 +240,12 @@ app.post('/api/requests', async (req, res) => {
         ? `🩸 Pulse triggered! Found ${matchedDonors.length} donors. ${emailResult.sent} email(s) sent.`
         : `Request submitted. Coordinator notified. No donors in ${city} currently.`,
       data:{
-        requestId, status:requestData.status,
+        requestId, 
+        status:requestData.status,
         compatibleDonorsFound:matchedDonors.length,
         emailsSent:emailResult.sent,
         estimatedMatchMinutes:estimatedMinutes,
+        matchedDonors: requestData.matchedDonors
       }
     })
   } catch (err) {
@@ -277,9 +299,22 @@ app.get('/api/respond', async (req, res) => {
     const donor   = { id:donorId, ...donorDoc.data() }
 
     if (action === 'confirm') {
-      const updatedDonors = (request.matchedDonors||[]).map(d =>
+
+      /*const updatedDonors = (request.matchedDonors||[]).map(d =>
         d.donorId === donorId ? { ...d, status:'confirmed', confirmedAt:new Date().toISOString() } : d
+      )*/
+
+      const updatedDonors = (request.matchedDonors || []).map(d =>
+        d.donorId === donorId
+          ? {
+              ...d,
+              status: 'confirmed',
+              contactShared: true,
+              confirmedAt: new Date().toISOString()
+            }
+          : d
       )
+
       await db.collection('bloodRequests').doc(requestId).update({
         matchedDonors:updatedDonors, status:'matched'
       })
