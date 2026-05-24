@@ -6,96 +6,102 @@ const {
   donorWelcomeEmail,
 } = require('./templates')
 
-const FROM = `"BloodBridge AI 🩸" <${process.env.EMAIL_USER}>`
+const FROM        = `"BloodBridge AI 🩸" <${process.env.EMAIL_USER}>`
 const COORDINATOR = process.env.COORDINATOR_EMAIL || 'contact.bloodbridge@gmail.com'
 
-// ── Send email to a single donor about blood request ──
-const notifyDonor = async ({ donor, request, requestId, aiScore }) => {
-  if (!global.EMAIL_CONNECTED || !donor.email) return false
+// ── Send welcome email to new donor ─────────────
+const sendWelcomeEmail = async ({ donor }) => {
+  console.log(`📧 Attempting welcome email to: ${donor.email}`)
+  console.log(`📧 EMAIL_CONNECTED: ${global.EMAIL_CONNECTED}`)
+
+  if (!donor.email) {
+    console.log('⚠️  No email address for donor — skipping')
+    return false
+  }
+  if (!global.EMAIL_CONNECTED) {
+    console.log('⚠️  Email not connected — skipping welcome email')
+    return false
+  }
+
   try {
-    const { subject, html, text } = donorNotificationEmail({ donor, request, requestId, aiScore })
-    await transporter.sendMail({ from: FROM, to: donor.email, subject, html, text })
-    console.log(`📧 Donor notified: ${donor.email}`)
+    const { subject, html, text } = donorWelcomeEmail({ donor })
+    const info = await transporter.sendMail({
+      from: FROM, to: donor.email, subject, html, text
+    })
+    console.log(`✅ Welcome email SENT to ${donor.email} — MessageId: ${info.messageId}`)
     return true
   } catch (err) {
-    console.error(`❌ Failed to notify donor ${donor.email}:`, err.message)
+    console.error(`❌ Welcome email FAILED to ${donor.email}:`, err.message)
     return false
   }
 }
 
-// ── Notify all matched donors ──────────────────────
+// ── Notify all matched donors ────────────────────
 const notifyAllDonors = async ({ donors, request, requestId }) => {
+  console.log(`📧 notifyAllDonors called — EMAIL_CONNECTED: ${global.EMAIL_CONNECTED}`)
+  console.log(`📧 Donors with email: ${donors.length}`)
+
   if (!global.EMAIL_CONNECTED) {
     console.log('⚠️  Email not connected — skipping donor notifications')
     return { sent: 0, failed: 0 }
   }
 
   let sent = 0, failed = 0
-
-  for (const matched of donors) {
-    if (!matched.email) { failed++; continue }
-    const success = await notifyDonor({
-      donor:     matched,
-      request,
-      requestId,
-      aiScore:   matched.aiScore || 75,
-    })
-    if (success) sent++
-    else failed++
-    // Small delay between emails to avoid Gmail rate limits
+  for (const donor of donors) {
+    if (!donor.email) { console.log(`⚠️  No email for donor ${donor.name}`); failed++; continue }
+    try {
+      const { subject, html, text } = donorNotificationEmail({
+        donor, request, requestId, aiScore: donor.aiScore || 75
+      })
+      const info = await transporter.sendMail({ from:FROM, to:donor.email, subject, html, text })
+      console.log(`✅ Donor notified: ${donor.email} — ${info.messageId}`)
+      sent++
+    } catch (err) {
+      console.error(`❌ Failed to notify ${donor.email}:`, err.message)
+      failed++
+    }
     await new Promise(r => setTimeout(r, 300))
   }
 
-  console.log(`📧 Donor emails: ${sent} sent, ${failed} failed`)
+  console.log(`📧 Result: ${sent} sent, ${failed} failed`)
   return { sent, failed }
 }
 
-// ── Notify coordinator of new request ──────────────
+// ── Notify coordinator of new request ───────────
 const notifyCoordinator = async ({ request, requestId, matchedDonors }) => {
-  if (!global.EMAIL_CONNECTED) return false
+  console.log(`📧 Notifying coordinator: ${COORDINATOR}`)
+  if (!global.EMAIL_CONNECTED) {
+    console.log('⚠️  Email not connected — skipping coordinator notification')
+    return false
+  }
   try {
     const { subject, html, text } = coordinatorNotificationEmail({ request, requestId, matchedDonors })
-    await transporter.sendMail({ from: FROM, to: COORDINATOR, subject, html, text })
-    console.log(`📧 Coordinator notified: ${COORDINATOR}`)
+    const info = await transporter.sendMail({ from:FROM, to:COORDINATOR, subject, html, text })
+    console.log(`✅ Coordinator notified — ${info.messageId}`)
     return true
   } catch (err) {
-    console.error('❌ Failed to notify coordinator:', err.message)
+    console.error('❌ Coordinator notification FAILED:', err.message)
     return false
   }
 }
 
-// ── Notify coordinator when donor confirms ─────────
+// ── Notify coordinator when donor confirms ───────
 const notifyDonorConfirmed = async ({ donor, request }) => {
   if (!global.EMAIL_CONNECTED) return false
   try {
     const { subject, html, text } = donorConfirmedEmail({ donor, request })
-    await transporter.sendMail({ from: FROM, to: COORDINATOR, subject, html, text })
-    console.log(`📧 Confirmation sent to coordinator`)
+    const info = await transporter.sendMail({ from:FROM, to:COORDINATOR, subject, html, text })
+    console.log(`✅ Confirmation sent to coordinator — ${info.messageId}`)
     return true
   } catch (err) {
-    console.error('❌ Failed to send confirmation:', err.message)
-    return false
-  }
-}
-
-// ── Send welcome email to new donor ───────────────
-const sendWelcomeEmail = async ({ donor }) => {
-  if (!global.EMAIL_CONNECTED || !donor.email) return false
-  try {
-    const { subject, html, text } = donorWelcomeEmail({ donor })
-    await transporter.sendMail({ from: FROM, to: donor.email, subject, html, text })
-    console.log(`📧 Welcome email sent to: ${donor.email}`)
-    return true
-  } catch (err) {
-    console.error('❌ Failed to send welcome email:', err.message)
+    console.error('❌ Confirmation email FAILED:', err.message)
     return false
   }
 }
 
 module.exports = {
-  notifyDonor,
+  sendWelcomeEmail,
   notifyAllDonors,
   notifyCoordinator,
   notifyDonorConfirmed,
-  sendWelcomeEmail,
 }
