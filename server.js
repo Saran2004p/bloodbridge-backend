@@ -68,7 +68,17 @@ app.get('/', (req, res) => res.json({
 
 // ── POST /api/donors/register ───────────────────
 app.post('/api/donors/register', async (req, res) => {
-  const { name, age, phone, email, bloodType, city, preferredLanguage } = req.body
+  const {
+    name,
+    age,
+    phone,
+    email,
+    bloodType,
+    city,
+    preferredLanguage,
+    fcmToken,
+} = req.body
+
   if (!name || !phone || !bloodType || !city)
     return res.status(400).json({ success:false, message:'Missing required fields.' })
 
@@ -85,11 +95,22 @@ app.post('/api/donors/register', async (req, res) => {
       return res.status(400).json({ success:false, message:'Phone number already registered.' })
 
     const ref = await db.collection('donors').add({
-      name:name.trim(), age:Number(age), phone:phone.trim(),
-      email:email?.trim()||'', bloodType, city:city.trim(),
+      name:name.trim(), 
+      age:Number(age), 
+      phone:phone.trim(),
+      email:email?.trim()||'', 
+      bloodType, 
+      city:city.trim(),
+
+      fcmToken: fcmToken || '',
+
       preferredLanguage:preferredLanguage||'English',
-      consentGiven:true, isAvailable:true, isEligible:true,
-      totalDonations:0, responseRate:100, lastDonationDate:null,
+      consentGiven:true, 
+      isAvailable:true, 
+      isEligible:true,
+      totalDonations:0, 
+      responseRate:100, 
+      lastDonationDate:null,
       createdAt:admin.firestore.FieldValue.serverTimestamp(),
     })
 
@@ -227,6 +248,15 @@ app.post('/api/requests', async (req, res) => {
 
     // ✅ Send emails to matched donors
     const donorsWithEmail = matchedDonors.filter(d => d.email)
+    
+    const sendPushNotification = require('./services/sendPushNotification')
+
+    const donorTokens = matchedDonors
+      .filter(d => d.fcmToken)
+      .map(d => d.fcmToken)
+
+    await sendPushNotification(donorTokens, requestData)
+
     const emailResult = await notifyAllDonors({ donors:donorsWithEmail, request:requestData, requestId })
 
     // ✅ Notify coordinator
